@@ -1,0 +1,71 @@
+# ======================================================
+# ⚙️ Configuración de normalización de finales de línea
+# ======================================================
+
+# Forzar que Git normalice los finales de línea a LF en el repositorio
+* text=auto eol=lf
+
+# ======================================================
+# 🐍 Archivos Python
+# ======================================================
+*.py text diff=python
+*.pyw text diff=python
+
+# ======================================================
+# 🌐 Archivos web (HTML, CSS, JS)
+# ======================================================
+*.html text
+*.htm text
+*.css text
+*.js text
+*.json text
+*.yaml text
+*.yml text
+*.xml text
+
+# ======================================================
+# 🧱 Archivos de configuración
+# ======================================================
+*.ini text
+*.cfg text
+*.toml text
+*.env text
+
+# ======================================================
+# 📜 Documentación
+# ======================================================
+*.md text
+*.txt text
+*.rst text
+
+# ======================================================
+# 🧩 Exclusiones binarias
+# ======================================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.exe binary
+*.dll binary
+*.so binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+
+# ======================================================
+# 🧠 Identificación del proyecto
+# ======================================================
+# Asegura que los scripts y templates se manejen como texto
+app/**/*.html text
+app/**/*.py text
+app/**/*.js text
