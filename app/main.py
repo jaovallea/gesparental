@@ -20,9 +20,10 @@ def get_db():
         db.close()
 
 
-# --- Función para actualizar estado de un hijo ---
+# --- Función para actualizar estado ---
 def actualizar_estado(hijo, db: Session):
     ahora = datetime.now()
+
     if hijo.sancion_inicio:
         dias = (ahora - hijo.sancion_inicio).days
         if dias >= 3:
@@ -43,7 +44,7 @@ def actualizar_estado(hijo, db: Session):
 # --- Calcular tablero general ---
 def calcular_tablero(db: Session):
     hijos = db.query(Hijo).all()
-    nombres, estado, faltas, estado_detalle, resumen, graficos, registros = [], {}, {}, {}, {}, {}, {}
+    nombres, estado, faltas, estado_detalle, resumen, graficos, registros, totales = [], {}, {}, {}, {}, {}, {}, {}
 
     for hijo in hijos:
         nombres.append(hijo.nombre)
@@ -57,7 +58,7 @@ def calcular_tablero(db: Session):
             db.query(Registro)
             .filter_by(hijo_id=hijo.id)
             .order_by(Registro.fecha.desc())
-            .limit(20)
+            .limit(10)
             .all()
         )
 
@@ -68,12 +69,17 @@ def calcular_tablero(db: Session):
         meritos_7 = db.query(Registro).filter(
             Registro.hijo_id == hijo.id, Registro.tipo == "Mérito", Registro.fecha >= hace_7_dias
         ).count()
+
         resumen[hijo.nombre] = {"faltas": faltas_7, "meritos": meritos_7}
 
-    return nombres, estado, faltas, estado_detalle, resumen, graficos, registros
+        # ✅ Total actual (balance entre 0 y 7)
+        total_actual = max(0, min(7, hijo.faltas - meritos_7))
+        totales[hijo.nombre] = total_actual
+
+    return nombres, estado, faltas, estado_detalle, resumen, graficos, registros, totales
 
 
-# --- Rutas ---
+# --- Rutas principales ---
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, db: Session = Depends(get_db)):
     datos = calcular_tablero(db)
@@ -86,65 +92,44 @@ def index(request: Request, db: Session = Depends(get_db)):
         "resumen": datos[4],
         "graficos": datos[5],
         "registros": datos[6],
+        "totales": datos[7],
     })
 
 
 @app.post("/agregar")
 def agregar(nombre: str = Form(...), tipo: str = Form(...), comentario: str = Form(""), db: Session = Depends(get_db)):
+    comentario = comentario.strip()
+    if not comentario:
+        return RedirectResponse("/", status_code=303)
+
     hijo = db.query(Hijo).filter_by(nombre=nombre).first()
-    if not hijo or not comentario.strip():  # 🔒 bloquea comentarios vacíos
+    if not hijo:
         return RedirectResponse("/", status_code=303)
 
     if tipo == "Falta":
         hijo.faltas = min(hijo.faltas + 1, 7)
     elif tipo == "Mérito":
-        if hijo.sancion_inicio:
-            hijo.faltas = max(hijo.faltas - 1, 0)
-            if hijo.faltas == 0:
-                hijo.sancion_inicio = None
-        else:
-            hijo.faltas = max(hijo.faltas - 1, 0)
+        hijo.faltas = max(hijo.faltas - 1, 0)
 
-    nuevo = Registro(hijo_id=hijo.id, tipo=tipo, comentario=comentario.strip(), fecha=datetime.now())
+    nuevo = Registro(hijo_id=hijo.id, tipo=tipo, comentario=comentario)
     db.add(nuevo)
     db.commit()
     return RedirectResponse("/", status_code=303)
 
 
-# --- 🗑️ Eliminación con ajuste de cuentas ---
-@app.post("/eliminar")
-def eliminar(id: int = Form(...), db: Session = Depends(get_db)):
+@app.post("/borrar_registro")
+def borrar_registro(id: int = Form(...), db: Session = Depends(get_db)):
     reg = db.query(Registro).filter_by(id=id).first()
-    if reg:
-        hijo = db.query(Hijo).filter_by(id=reg.hijo_id).first()
-        if hijo:
-            if reg.tipo == "Falta":
-                hijo.faltas = max(hijo.faltas - 1, 0)
-            elif reg.tipo == "Mérito":
-                hijo.faltas = min(hijo.faltas + 1, 7)
+    if not reg:
+        return RedirectResponse("/", status_code=303)
 
-            if hijo.sancion_inicio and hijo.faltas < 7:
-                hijo.sancion_inicio = None
-
-            db.delete(reg)
-            db.commit()
-    return RedirectResponse("/", status_code=303)
-
-
-@app.post("/nuevo_hijo")
-def nuevo_hijo(nombre: str = Form(...), db: Session = Depends(get_db)):
-    nombre = nombre.strip()
-    if nombre and not db.query(Hijo).filter_by(nombre=nombre).first():
-        db.add(Hijo(nombre=nombre))
-        db.commit()
-    return RedirectResponse("/", status_code=303)
-
-
-@app.post("/eliminar_hijo")
-def eliminar_hijo(nombre: str = Form(...), db: Session = Depends(get_db)):
-    hijo = db.query(Hijo).filter_by(nombre=nombre).first()
+    hijo = db.query(Hijo).filter_by(id=reg.hijo_id).first()
     if hijo:
-        db.query(Registro).filter_by(hijo_id=hijo.id).delete()
-        db.delete(hijo)
+        if reg.tipo == "Falta":
+            hijo.faltas = max(hijo.faltas - 1, 0)
+        elif reg.tipo == "Mérito":
+            hijo.faltas = min(hijo.faltas + 1, 7)
+        db.delete(reg)
         db.commit()
+
     return RedirectResponse("/", status_code=303)
