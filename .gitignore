@@ -1,33 +1,169 @@
+# ======================================================
+# 🐍 Proyecto Python / FastAPI
+# ======================================================
+
 # Entornos virtuales
 venv/
+.venv/
 ENV/
 env/
-.venv/
+env.bak/
+env_local/
+envs/
+.conda/
+pythonenv*
+Pipfile.lock
 
-# Archivos temporales de Python
+# Archivos compilados de Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.so
+*$py.class
 
-# Archivos de configuración locales
-*.env
-.env.*
-.DS_Store
-
-# Archivos de logs y backups
+# Archivos temporales o de caché
 *.log
+*.tmp
 *.bak
 *.swp
+*.swo
+*.orig
+*.rej
+*.save
+*.pid
+*.seed
+*.manifest
+*.spec
 
-# Archivos de dependencias o instalación
-pip-wheel-metadata/
-*.egg-info/
+# Distribución y empaquetado
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Archivos del IDE
+# Documentación generada
+docs/_build/
+doc/_build/
+site/
+
+# Archivos de prueba / cobertura
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Archivos de configuración y variables de entorno
+.env
+.env.*
+*.env
+*.ini
+*.cfg
+*.toml
+*.yaml
+*.yml
+secrets.json
+config.json
+
+# Archivos del sistema (Linux, macOS, Windows)
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+$RECYCLE.BIN/
+
+# Archivos de backup de editores
+*~
+*.bak
+*.tmp
+*.swp
+*.swo
+*.old
+*.orig
+*.save
+
+# ======================================================
+# 💻 Editores / IDEs
+# ======================================================
+
+# Visual Studio Code
 .vscode/
-.idea/
 *.code-workspace
+
+# PyCharm / JetBrains
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Atom
+.atom/
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+.profile_default/
+ipython_config.py
+
+# ======================================================
+# 🐳 Contenedores / Infraestructura
+# ======================================================
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+__docker_build__/
+*.tar
+
+# Render / despliegue
+render.yaml.local
+render-debug.log
+
+# ======================================================
+# 🔧 Otros archivos específicos
+# ======================================================
+
+# Logs de servidores
+*.log
+*.out
+*.err
+
+# Archivos de base de datos locales
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+
+# Archivos de backups automáticos
+*.bak
+*.old
+*.tmp
+*.zip
+*.tar.gz
+
+# ======================================================
+# 🧠 Personal
+# ======================================================
+
+# Archivos personales o de notas
+notes.txt
+TODO.txt
+README_personal.md
