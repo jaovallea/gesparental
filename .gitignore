@@ -1,0 +1,33 @@
+# Entornos virtuales
+venv/
+ENV/
+env/
+.venv/
+
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Archivos de configuración locales
+*.env
+.env.*
+.DS_Store
+
+# Archivos de logs y backups
+*.log
+*.bak
+*.swp
+
+# Archivos de dependencias o instalación
+pip-wheel-metadata/
+*.egg-info/
+build/
+dist/
+
+# Archivos del IDE
+.vscode/
+.idea/
+*.code-workspace
