@@ -1,46 +1,32 @@
 # ======================================================
-# ⚙️ Configuración de normalización de finales de línea
+# ⚙️ CONFIGURACIÓN GENERAL
 # ======================================================
 
-# Forzar que Git normalice los finales de línea a LF en el repositorio
+# Forzar finales de línea estilo Unix (LF) para todo archivo de texto
 * text=auto eol=lf
 
-# ======================================================
-# 🐍 Archivos Python
-# ======================================================
+# Forzar codificación UTF-8 en todo archivo de texto
+* working-tree-encoding=UTF-8
+
+# Detectar correctamente los archivos de texto y su tipo
 *.py text diff=python
-*.pyw text diff=python
-
-# ======================================================
-# 🌐 Archivos web (HTML, CSS, JS)
-# ======================================================
-*.html text
-*.htm text
-*.css text
-*.js text
+*.html text diff=html
+*.css text diff=css
+*.js text diff=javascript
 *.json text
-*.yaml text
 *.yml text
-*.xml text
-
-# ======================================================
-# 🧱 Archivos de configuración
-# ======================================================
+*.yaml text
+*.toml text
 *.ini text
 *.cfg text
-*.toml text
-*.env text
-
-# ======================================================
-# 📜 Documentación
-# ======================================================
-*.md text
 *.txt text
+*.md text
 *.rst text
 
 # ======================================================
-# 🧩 Exclusiones binarias
+# 📦 ARCHIVOS BINARIOS
 # ======================================================
+# Evita que Git intente mostrar diferencias en archivos binarios
 *.png binary
 *.jpg binary
 *.jpeg binary
@@ -63,9 +49,30 @@
 *.otf binary
 
 # ======================================================
-# 🧠 Identificación del proyecto
+# 🚀 DESPLIEGUE Y RENDIMIENTO
 # ======================================================
-# Asegura que los scripts y templates se manejen como texto
+
+# Ignorar metadatos de sistema
+*.log text eol=lf
+
+# Asegurar que los archivos críticos de despliegue sean tratados como texto
+render.yaml text eol=lf
+requirements.txt text eol=lf
+
+# Optimiza el almacenamiento y evita conversiones innecesarias
+*.csv text eol=lf
+*.tsv text eol=lf
+
+# ======================================================
+# 🧠 PROYECTO APP
+# ======================================================
+
+# Forzar tratamiento de plantillas y scripts como texto
 app/**/*.html text
-app/**/*.py text
 app/**/*.js text
+app/**/*.py text
+app/**/*.css text
+app/**/*.jinja text
+templates/**/*.html text
+static/**/*.css text
+static/**/*.js text
