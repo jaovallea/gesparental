@@ -1,136 +1,130 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from .database import Base, engine, SessionLocal
-from .models import Registro, Estado
+from sqlalchemy import Column, Integer, String, DateTime
+import os
 
-# --- Configuración base ---
-app = FastAPI(title="GesParental")
+# ---------------- Configuración general ----------------
+app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# --- Inicializar base de datos ---
+
+# ---------------- Modelo de datos ----------------
+class Registro(Base):
+    __tablename__ = "registros"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String)
+    tipo = Column(String)
+    comentario = Column(String)
+    fecha = Column(DateTime, default=datetime.now)
+
+
 Base.metadata.create_all(bind=engine)
 
-# --- Parámetros generales ---
-LIMITE_FALTAS = 7
-DIAS_AMONESTACION = 3
 
-# --- Funciones auxiliares ---
-def iniciar_estado(db, nombre):
-    estado = db.query(Estado).filter_by(nombre=nombre).first()
-    if not estado:
-        estado = Estado(nombre=nombre, en_amonestacion=False)
-        db.add(estado)
-        db.commit()
-    return estado
-
-def verificar_estado(db, nombre):
-    estado = iniciar_estado(db, nombre)
-    if estado.en_amonestacion and estado.fin_amonestacion:
-        # si ya pasaron los 3 días y tiene 0 faltas, sale de amonestación
-        faltas = db.query(Registro).filter_by(nombre=nombre, tipo="Falta").count()
-        if faltas == 0 and datetime.now() >= estado.fin_amonestacion:
-            estado.en_amonestacion = False
-            estado.fin_amonestacion = None
-            db.commit()
-    return estado
-
-def activar_amonestacion(db, nombre):
-    estado = iniciar_estado(db, nombre)
-    estado.en_amonestacion = True
-    estado.fin_amonestacion = datetime.now() + timedelta(days=DIAS_AMONESTACION)
-    db.commit()
-
-# --- Rutas ---
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request):
+# ---------------- Dependencias ----------------
+def get_db():
     db = SessionLocal()
-    hijas = ["Johlexa", "Alejandra"]
+    try:
+        yield db
+    finally:
+        db.close()
 
-    registros = {
-        h: db.query(Registro)
-        .filter(Registro.nombre == h)
-        .order_by(Registro.fecha.desc())
-        .all()
-        for h in hijas
-    }
 
-    conteo = {
-        h: db.query(Registro).filter_by(nombre=h, tipo="Falta").count() for h in hijas
-    }
+# ---------------- Funciones auxiliares ----------------
+def calcular_estado_y_resumen(registros):
+    nombres = ["Johlexa", "Alejandra"]
+    estado, faltas, dias_restantes, resumen, graficos, registros_dict = {}, {}, {}, {}, {}, {}
 
-    estados = {h: verificar_estado(db, h) for h in hijas}
+    for n in nombres:
+        faltas[n] = sum(1 for r in registros if r.nombre == n and r.tipo == "Falta")
+        meritos = sum(1 for r in registros if r.nombre == n and r.tipo == "Mérito")
+        graficos[n] = {"faltas": faltas[n]}
+        registros_dict[n] = [r for r in registros if r.nombre == n]
 
-    # 🔹 Resumen de los últimos 7 días
-    desde = datetime.now() - timedelta(days=7)
-    resumen = {}
-    for h in hijas:
-        faltas = db.query(Registro).filter(
-            Registro.nombre == h, Registro.tipo == "Falta", Registro.fecha >= desde
-        ).count()
-        meritos = db.query(Registro).filter(
-            Registro.nombre == h, Registro.tipo == "Mérito", Registro.fecha >= desde
-        ).count()
-        resumen[h] = {"faltas": faltas, "meritos": meritos}
+        # Estado sanción (7 faltas = sanción)
+        if faltas[n] >= 7:
+            estado[n] = "Sancionado"
+            dias_restantes[n] = 3
+        else:
+            estado[n] = "Libre"
+            dias_restantes[n] = 0
+
+        # Resumen semanal
+        hace_7_dias = datetime.now() - timedelta(days=7)
+        resumen[n] = {
+            "faltas": sum(1 for r in registros if r.nombre == n and r.tipo == "Falta" and r.fecha > hace_7_dias),
+            "meritos": sum(1 for r in registros if r.nombre == n and r.tipo == "Mérito" and r.fecha > hace_7_dias)
+        }
+
+    return nombres, estado, faltas, dias_restantes, resumen, graficos, registros_dict
+
+
+# ---------------- Rutas principales ----------------
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request, db: Session = Depends(get_db)):
+    registros = db.query(Registro).order_by(Registro.fecha.desc()).all()
+
+    nombres, estado, faltas, dias_restantes, resumen, graficos, registros_dict = calcular_estado_y_resumen(registros)
+
+    # Protección por defecto (si algo falla o variables están vacías)
+    if not graficos:
+        graficos = {n: {"faltas": 0} for n in nombres}
+    if not resumen:
+        resumen = {n: {"faltas": 0, "meritos": 0} for n in nombres}
 
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
-            "registros": registros,
-            "conteo": conteo,
-            "estados": estados,
+            "nombres": nombres,
+            "estado": estado,
+            "faltas": faltas,
+            "dias_restantes": dias_restantes,
             "resumen": resumen,
-            "limite": LIMITE_FALTAS,
+            "graficos": graficos,
+            "registros": registros_dict,
         },
     )
 
+
 @app.post("/agregar")
-def agregar(nombre: str = Form(...), tipo: str = Form(...), comentario: str = Form("")):
-    db = SessionLocal()
-    estado = verificar_estado(db, nombre)
+def agregar(
+    nombre: str = Form(...),
+    tipo: str = Form(...),
+    comentario: str = Form(""),
+    db: Session = Depends(get_db)
+):
     nuevo = Registro(nombre=nombre, tipo=tipo, comentario=comentario)
     db.add(nuevo)
     db.commit()
+    return RedirectResponse(url="/", status_code=303)
 
-    if tipo == "Falta":
-        faltas = db.query(Registro).filter_by(nombre=nombre, tipo="Falta").count()
-        if faltas >= LIMITE_FALTAS and not estado.en_amonestacion:
-            activar_amonestacion(db, nombre)
-
-    elif tipo == "Mérito":
-        # cada mérito borra una falta si hay alguna
-        falta = (
-            db.query(Registro)
-            .filter_by(nombre=nombre, tipo="Falta")
-            .order_by(Registro.fecha.asc())
-            .first()
-        )
-        if falta:
-            db.delete(falta)
-            db.commit()
-
-    verificar_estado(db, nombre)
-    return RedirectResponse("/", status_code=303)
 
 @app.post("/eliminar/{id}")
-def eliminar_registro(id: int):
-    db = SessionLocal()
-    registro = db.query(Registro).get(id)
-    if registro:
-        db.delete(registro)
+def eliminar(id: int, db: Session = Depends(get_db)):
+    reg = db.query(Registro).filter(Registro.id == id).first()
+    if reg:
+        db.delete(reg)
         db.commit()
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse(url="/", status_code=303)
+
 
 @app.post("/editar/{id}")
-def editar_registro(id: int, tipo: str = Form(...), comentario: str = Form("")):
-    db = SessionLocal()
-    registro = db.query(Registro).get(id)
-    if registro:
-        registro.tipo = tipo
-        registro.comentario = comentario
+def editar(
+    id: int,
+    tipo: str = Form(...),
+    comentario: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    reg = db.query(Registro).filter(Registro.id == id).first()
+    if reg:
+        reg.tipo = tipo
+        reg.comentario = comentario
         db.commit()
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse(url="/", status_code=303)
