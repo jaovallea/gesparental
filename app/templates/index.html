@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>GesParental</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 h-screen flex flex-col">
+  <!-- 🔹 ENCABEZADO -->
+  <header class="p-4 bg-white shadow flex flex-wrap items-center gap-2 fixed top-0 left-0 right-0 z-10">
+    <h1 class="text-2xl font-bold text-blue-600 flex-1">GesParental</h1>
+    <form action="/agregar" method="post" class="flex flex-wrap gap-2">
+      <select name="nombre" class="border p-2 rounded">
+        <option value="Johlexa">Johlexa</option>
+        <option value="Alejandra">Alejandra</option>
+      </select>
+      <select name="tipo" class="border p-2 rounded">
+        <option value="Falta">Falta</option>
+        <option value="Mérito">Mérito</option>
+      </select>
+      <input type="text" name="comentario" placeholder="Comentario..." class="border p-2 rounded w-40 md:w-64">
+      <button class="bg-blue-500 text-white px-4 py-2 rounded">Registrar</button>
+    </form>
+  </header>
+
+  <!-- 🔹 CUERPO PRINCIPAL -->
+  <main class="flex-1 overflow-hidden pt-20">
+    <div class="h-full grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 p-2 md:p-4">
+      {% for nombre, count in conteo.items() %}
+      <div class="p-3 md:p-4 rounded shadow flex flex-col justify-between h-full {% if nombre=='Johlexa' %}bg-purple-100{% elif nombre=='Alejandra' %}bg-pink-100{% endif %}">
+        <div class="flex flex-col h-full">
+          <div>
+            <h2 class="text-xl font-semibold mb-1">{{ nombre }}</h2>
+
+            {% if estados[nombre].en_amonestacion %}
+              <p class="text-red-600 font-semibold">
+                🚫 En sanción hasta {{ estados[nombre].fin_amonestacion.strftime('%Y-%m-%d %H:%M') }}
+              </p>
+            {% else %}
+              <p class="text-green-600 font-semibold">✔️ Libre de sanción</p>
+            {% endif %}
+
+            <p>Faltas actuales: <b>{{ count }}</b> / {{ limite }}</p>
+          </div>
+
+          <div class="flex-1 flex justify-center items-center">
+            <canvas id="chart{{ loop.index }}" style="max-height: 35vh; max-width: 85%;"></canvas>
+          </div>
+          <script>
+            new Chart(document.getElementById('chart{{ loop.index }}'), {
+              type: 'doughnut',
+              options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+              },
+              data: {
+                labels: ['Faltas', 'Restante'],
+                datasets: [{
+                  data: [{{ count }}, {{ limite - count }}],
+                  backgroundColor: ['#ef4444', '#93c5fd']
+                }]
+              }
+            });
+          </script>
+
+          <div class="overflow-y-auto mt-2 max-h-[30vh]">
+            <h3 class="mt-2 font-semibold">Historial:</h3>
+            <ul>
+            {% for r in registros[nombre] %}
+              <li class="border p-2 my-1 rounded text-sm flex justify-between items-center {% if r.tipo=='Falta' %}bg-red-50{% elif r.tipo=='Mérito' %}bg-green-50{% endif %}">
+                <div>
+                  <b>{{ r.tipo }}</b> — {{ r.comentario }}
+                  <span class="text-gray-500 text-xs">{{ r.fecha.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <form action="/eliminar/{{ r.id }}" method="post">
+                    <button class="text-red-600">🗑️</button>
+                  </form>
+                  <form action="/editar/{{ r.id }}" method="post" class="flex gap-1">
+                    <select name="tipo" class="border text-xs">
+                      <option value="Falta" {% if r.tipo=='Falta' %}selected{% endif %}>Falta</option>
+                      <option value="Mérito" {% if r.tipo=='Mérito' %}selected{% endif %}>Mérito</option>
+                    </select>
+                    <input type="text" name="comentario" value="{{ r.comentario }}" class="border text-xs p-1 w-24 md:w-32">
+                    <button class="text-blue-600">💾</button>
+                  </form>
+                </div>
+              </li>
+            {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </main>
+
+  <!-- 🔹 RESUMEN SEMANAL -->
+  <footer class="bg-white p-3 md:p-4 shadow overflow-auto" style="height: 25vh;">
+    <h2 class="text-xl font-semibold mb-2 text-gray-700">Resumen semanal</h2>
+    <table class="w-full text-center border text-sm mb-4">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="p-2">Nombre</th>
+          <th>Faltas (últimos 7 días)</th>
+          <th>Méritos (últimos 7 días)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for nombre in conteo.keys() %}
+        <tr class="{% if nombre=='Johlexa' %}bg-purple-50{% elif nombre=='Alejandra' %}bg-pink-50{% endif %}">
+          <td class="p-2 font-semibold">{{ nombre }}</td>
+          <td>{{ resumen[nombre]['faltas'] }}</td>
+          <td>{{ resumen[nombre]['meritos'] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- 🔸 Gráfico comparativo -->
+    <div class="flex justify-center">
+      <canvas id="comparativo" style="max-height: 18vh; width: 90%;"></canvas>
+    </div>
+    <script>
+      const ctx = document.getElementById('comparativo');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: [{% for nombre in conteo.keys() %}'{{ nombre }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+          datasets: [
+            {
+              label: 'Faltas',
+              data: [{% for nombre in conteo.keys() %}{{ resumen[nombre]['faltas'] }}{% if not loop.last %}, {% endif %}{% endfor %}],
+              backgroundColor: '#ef4444'
+            },
+            {
+              label: 'Méritos',
+              data: [{% for nombre in conteo.keys() %}{{ resumen[nombre]['meritos'] }}{% if not loop.last %}, {% endif %}{% endfor %}],
+              backgroundColor: '#22c55e'
+            }
+          ]
+        },
+        options: {
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true } },
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    </script>
+  </footer>
+</body>
+</html>
